@@ -1,0 +1,4 @@
+AirVPN_wg/AirVPN_AT-*_UDP-47107*.conf
+AirVPN_wg/AirVPN_DE-*_UDP-47107*.conf
+AirVPN_wg/AirVPN_BE-*_UDP-47107*.conf
+AirVPN_wg/AirVPN_NL-*_UDP-47107*.conf

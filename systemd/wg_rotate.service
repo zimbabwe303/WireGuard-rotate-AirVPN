@@ -1,0 +1,15 @@
+[Unit]
+Description=Rotate WireGuard servers
+Before=systemd-user-sessions.service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=/etc/wireguard
+PrivateTmp=false
+ExecStartPre=sleep 5
+ExecStart=/etc/wireguard/wg_rotate.sh
+
+[Install]
+WantedBy=multi-user.target
