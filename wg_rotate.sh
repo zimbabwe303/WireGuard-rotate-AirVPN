@@ -48,11 +48,6 @@ current_server_txt="$root_dir"/current_server.txt
 wg_conf_file="$root_dir"/wg0.conf
 interface_name=wg0
 
-random_bytestr()
-{
-  return $(cat /dev/urandom | head -c1 | od -An -vtu1 | sed 's/^ *//')
-}
-
 stop_daemons()
 {
   if ip link | grep $interface_name > /dev/null; then
