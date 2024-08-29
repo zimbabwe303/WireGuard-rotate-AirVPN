@@ -1,6 +1,6 @@
 #!/bin/sh
 # Rotate servers (WireGuard version)
-# 28.08.2024
+# 29.08.2024
 
 # THIS SCRIPT IS SELF-CONTAINED
 # IT DOES NOT REQUIRE ANY OTHER SCRIPTS
@@ -19,20 +19,21 @@ wg=awg              # use AmneziaWG's wg
 wg_wait=30          # in seconds
 switch_file=/tmp/wg_switch
 
-connect_ping_max=250          # in ms
+connect_ping_max=200          # in ms
 connect_ping_count=3          # set to 0 to disable connect ping entirely
 connect_ping_addr=1.1.1.1
 test_ping_every=30            # in seconds
+test_ping_count=3
 ping_timeout=10               # in seconds, used for all pings
 
 # AmneziaWG parameters
 amnezia_ENABLE=1   # Add the AmneziaWG parameters
-amnezia_Jc=4       # Junk packet count
-amnezia_Jmin=30    # Junk packet minimum size
+amnezia_Jc=15      # Junk packet count
+amnezia_Jmin=40    # Junk packet minimum size
 amnezia_Jmax=80    # Junk packet maximum size
 amnezia_S1=0       # Init packet junk size
 amnezia_S2=0       # Response packet junk size
-amnezia_CustomH=0  # Set to 1 to use custom H1..4 parameters
+amnezia_CustomH=1  # Set to 1 to use custom H1..4 parameters
 amnezia_H1=1       # Init packet magic header
 amnezia_H2=2       # Response packet magic header
 amnezia_H3=3       # Transport packet magic header
@@ -47,7 +48,12 @@ current_server_txt="$root_dir"/current_server.txt
 wg_conf_file="$root_dir"/wg0.conf
 interface_name=wg0
 
-stop_daemons ()
+random_bytestr()
+{
+  return $(cat /dev/urandom | head -c1 | od -An -vtu1 | sed 's/^ *//')
+}
+
+stop_daemons()
 {
   if ip link | grep $interface_name > /dev/null; then
     echo "Killing WireGuard (interface: $interface_name)... "
@@ -66,7 +72,7 @@ ctrlc()
 trap ctrlc INT
 
 # Critical error with exit
-critical_error ()
+critical_error()
 {
   if [ $1 -gt 0 ]; then
     echo "Critical error: $1. Stopping daemons and exiting..."
@@ -76,7 +82,7 @@ critical_error ()
 }
 
 # Change server
-change_server ()
+change_server()
 {
   # Stage name
   sn="Changing server"
@@ -200,7 +206,7 @@ change_server ()
 }
 
 # get_sleep MIN RANGE // in minutes
-get_sleep ()
+get_sleep()
 {
   if [ $2 -lt 1 ]; then
     # Range is 0
@@ -266,7 +272,7 @@ do
     while [ $a -lt $(($sleep_for/$test_ping_every)) ] || [ $sleep_for = 0 ]
     do
       sleep $test_ping_every
-      received=$(ping -q -c 1 -W $ping_timeout $endpoint | sed -n 's/^.* \([0-9]*\) received.*/\1/p')
+      received=$(ping -q -c $test_ping_count -W $ping_timeout $endpoint | sed -n 's/^.* \([0-9]*\) received.*/\1/p')
       if [ ! $received ]; then
         # Ping error
         echo "Cannot ping endpoint, trying another server..."
