@@ -1,6 +1,6 @@
 #!/bin/sh
 # Rotate servers (WireGuard version)
-# 29.08.2024
+# 04.09.2024
 
 # THIS SCRIPT IS SELF-CONTAINED
 # IT DOES NOT REQUIRE ANY OTHER SCRIPTS
@@ -28,16 +28,16 @@ ping_timeout=10               # in seconds, used for all pings
 
 # AmneziaWG parameters
 amnezia_ENABLE=1   # Add the AmneziaWG parameters
-amnezia_Jc=15      # Junk packet count
+amnezia_Jc=50      # Junk packet count
 amnezia_Jmin=40    # Junk packet minimum size
 amnezia_Jmax=80    # Junk packet maximum size
 amnezia_S1=0       # Init packet junk size
 amnezia_S2=0       # Response packet junk size
-amnezia_CustomH=1  # Set to 1 to use custom H1..4 parameters
-amnezia_H1=1       # Init packet magic header
-amnezia_H2=2       # Response packet magic header
-amnezia_H3=3       # Transport packet magic header
-amnezia_H4=4       # Underload packet magic header
+amnezia_CustomH=0  # Set to 1 to use custom H1..4 parameters, 0 to use random (except 1,2,3,4)
+amnezia_H1=4       # Init packet magic header
+amnezia_H2=3       # Response packet magic header
+amnezia_H3=2       # Transport packet magic header
+amnezia_H4=1       # Underload packet magic header
 
 restart_dnsmasq=1
 restart_danted=1
@@ -96,15 +96,18 @@ change_server()
   # Copy and patch the WireGuard configuration
   if [ $amnezia_ENABLE -gt 0 ]; then
     echo "$sn: Copy \"$newfile\" as \"$wg_conf_file\" and add custom options..."
-    if [ $amnezia_CustomH -gt 0 ]; then
-      echo "$sn: using custom H1..4 parameters"
-      sed "/^\[Interface\]/a\Jc = $amnezia_Jc\nJmin = $amnezia_Jmin\nJmax = $amnezia_Jmax\nS1 = $amnezia_S1\nS2 = $amnezia_S2\nH1 = $amnezia_H1\nH2 = $amnezia_H2\nH3 = $amnezia_H3\nH4 = $amnezia_H4" \
-        "$newdir"/"$newfile" > "$wg_conf_file"
+    if [ $amnezia_CustomH -eq 0 ]; then
+      echo "$sn: using random H1..4 parameters"
+      h="$(shuf -e 1 2 3 4)"
+      amnezia_H1=$(echo "$h" | sed '1q;d')
+      amnezia_H2=$(echo "$h" | sed '2q;d')
+      amnezia_H3=$(echo "$h" | sed '3q;d')
+      amnezia_H4=$(echo "$h" | sed '4q;d')
     else
-      echo "$sn: using default H1..4 parameters"
-      sed "/^\[Interface\]/a\Jc = $amnezia_Jc\nJmin = $amnezia_Jmin\nJmax = $amnezia_Jmax\nS1 = $amnezia_S1\nS2 = $amnezia_S2" \
-        "$newdir"/"$newfile" > "$wg_conf_file"
+      echo "$sn: using custom H1..4 parameters"
     fi
+    sed "/^\[Interface\]/a\Jc = $amnezia_Jc\nJmin = $amnezia_Jmin\nJmax = $amnezia_Jmax\nS1 = $amnezia_S1\nS2 = $amnezia_S2\nH1 = $amnezia_H1\nH2 = $amnezia_H2\nH3 = $amnezia_H3\nH4 = $amnezia_H4" \
+      "$newdir"/"$newfile" > "$wg_conf_file"
   else
     echo "$sn: Copy \"$newfile\" as \"$wg_conf_file\"..."
     cp "$newfile" "$wg_conf_file"
