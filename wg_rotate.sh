@@ -112,7 +112,7 @@ change_server()
     else
       echo "$sn: using custom H1..4 parameters"
     fi
-    sed "/^\[Interface\]/a\Jc = $amnezia_Jc\nJmin = $amnezia_Jmin\nJmax = $amnezia_Jmax\nS1 = $amnezia_S1\nS2 = $amnezia_S2\nH1 = $amnezia_H1\nH2 = $amnezia_H2\nH3 = $amnezia_H3\nH4 = $amnezia_H4\nI1 = $amnezia_I1\nI2 = $amnezia_I2\n" \
+    sed "/^\[Interface\]/a\Jc = $amnezia_Jc\nJmin = $amnezia_Jmin\nJmax = $amnezia_Jmax\nS1 = $amnezia_S1\nS2 = $amnezia_S2\nS3 = $amnezia_S3\nS4 = $amnezia_S4\nH1 = $amnezia_H1\nH2 = $amnezia_H2\nH3 = $amnezia_H3\nH4 = $amnezia_H4\nI1 = $amnezia_I1\nI2 = $amnezia_I2\n" \
       "$newdir"/"$newfile" > "$wg_conf_file"
   else
     echo "$sn: Copy \"$newfile\" as \"$wg_conf_file\"..."
