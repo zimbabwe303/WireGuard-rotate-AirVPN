@@ -1,6 +1,8 @@
 # WireGuard-rotate-AirVPN
 This is a couple of Linux scripts and a systemd service intended to be used with the [AirVPN](https://airvpn.org) service provider.
 
+*NOTE: version 18.04.2026 and later has to be used with AmneziaWG 2.0 or later.*
+
 ### prepare_AirVPN_wg.sh
 * Unpacks the .tar.gz file created by the Config Generator into `/etc/wireguard/AirVPN_wg`
 * (optionally) Fixes permissions
@@ -13,7 +15,7 @@ This is a couple of Linux scripts and a systemd service intended to be used with
 * Adds the AmneziaWG options into the conf file
 * Connects to the server
 * Verifies the connection availability and feasibility, if it's poor moves to the next server
-* (optionally) Restarts `dnsmasq.service` and `danted.service`
+* (optionally) Starts `microsocks` (default port = 1080)
 * Starts the timer or waits for a switch file to appear, once triggered moves to the next server
 * If the connection becomes non-responsive, moves to the next server
 

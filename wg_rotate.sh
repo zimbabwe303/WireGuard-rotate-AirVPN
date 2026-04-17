@@ -1,6 +1,6 @@
 #!/bin/sh
 # Rotate servers (WireGuard version)
-# 04.09.2024
+# 18.04.2026
 
 # THIS SCRIPT IS SELF-CONTAINED
 # IT DOES NOT REQUIRE ANY OTHER SCRIPTS
@@ -11,36 +11,42 @@
 # its existence was detected by the script.
 
 rotate_interval=0     # in minutes, set to 0 to disable automatic rotation
-rotate_variation=60   # in minutes
+rotate_variation=30   # in minutes
 
 root_dir=/etc/wireguard
 wg_quick=awg-quick  # use AmneziaWG's wg-quick
 wg=awg              # use AmneziaWG's wg
-wg_wait=30          # in seconds
+wg_wait=15          # in seconds
 switch_file=/tmp/wg_switch
+system_dns=1        # use system DNS (e.g. DNSCrypt daemon)
 
-connect_ping_max=200          # in ms
+connect_ping_max=250          # in ms
 connect_ping_count=3          # set to 0 to disable connect ping entirely
 connect_ping_addr=1.1.1.1
 test_ping_every=30            # in seconds
 test_ping_count=3
 ping_timeout=10               # in seconds, used for all pings
+mtu=1500                      # default is 1320
 
 # AmneziaWG parameters
 amnezia_ENABLE=1   # Add the AmneziaWG parameters
-amnezia_Jc=50      # Junk packet count
-amnezia_Jmin=40    # Junk packet minimum size
-amnezia_Jmax=80    # Junk packet maximum size
-amnezia_S1=0       # Init packet junk size
-amnezia_S2=0       # Response packet junk size
-amnezia_CustomH=0  # Set to 1 to use custom H1..4 parameters, 0 to use random (except 1,2,3,4)
-amnezia_H1=4       # Init packet magic header
-amnezia_H2=3       # Response packet magic header
-amnezia_H3=2       # Transport packet magic header
-amnezia_H4=1       # Underload packet magic header
+amnezia_Jc=35      # Junk packet count
+amnezia_Jmin=150   # Junk packet minimum size
+amnezia_Jmax=2500  # Junk packet maximum size
+amnezia_S1=0       # Handshake init padding
+amnezia_S2=0       # Handshake response padding
+amnezia_S3=0       # Cookie reply padding
+amnezia_S4=0       # Transport data padding
+amnezia_CustomH=1  # Set to 1 to use custom H1..4 parameters, 0 to use random (except 1,2,3,4)
+amnezia_H1=1       # Init packet magic header
+amnezia_H2=2     # Response packet magic header
+amnezia_H3=3       # Transport packet magic header
+amnezia_H4=4     # Underload packet magic header
+amnezia_I1="<b 0xc700000001><rc 8><t><r 100>"  # Signature packet 1 (QUIC)
+amnezia_I2="<b 0xf6ab3267fa><t><rc 20><r 80>"  # Signature packet 2 (QUIC)
 
 restart_dnsmasq=1
-restart_danted=1
+microsocks=1
 
 list_file="$root_dir"/wg_rotate_servers.txt
 full_file="$root_dir"/wg_rotate_servers_full.txt
@@ -106,12 +112,16 @@ change_server()
     else
       echo "$sn: using custom H1..4 parameters"
     fi
-    sed "/^\[Interface\]/a\Jc = $amnezia_Jc\nJmin = $amnezia_Jmin\nJmax = $amnezia_Jmax\nS1 = $amnezia_S1\nS2 = $amnezia_S2\nH1 = $amnezia_H1\nH2 = $amnezia_H2\nH3 = $amnezia_H3\nH4 = $amnezia_H4" \
+    sed "/^\[Interface\]/a\Jc = $amnezia_Jc\nJmin = $amnezia_Jmin\nJmax = $amnezia_Jmax\nS1 = $amnezia_S1\nS2 = $amnezia_S2\nH1 = $amnezia_H1\nH2 = $amnezia_H2\nH3 = $amnezia_H3\nH4 = $amnezia_H4\nI1 = $amnezia_I1\nI2 = $amnezia_I2\n" \
       "$newdir"/"$newfile" > "$wg_conf_file"
   else
     echo "$sn: Copy \"$newfile\" as \"$wg_conf_file\"..."
     cp "$newfile" "$wg_conf_file"
   fi
+  if [ $system_dns -gt 0 ]; then
+    sed -i "/^DNS = .*$/d" "$wg_conf_file"
+  fi
+  sed -i "s/MTU = .*/MTU = $mtu/" "$wg_conf_file"
 
   # Start WireGuard
   echo "$sn: Starting the WireGuard client..."
@@ -125,7 +135,7 @@ change_server()
   # Get endpoint address
   endpoint=$("$wg" show $interface_name endpoints | cut -f2 | sed 's/:.*$//')
   echo "$sn: Endpoint address is $endpoint"
-  if [ ! $endpoint ]; then
+  if [ ! "$endpoint" ]; then
     echo "$sn: cannot get endpoint address"
     stop_daemons
     return 102
@@ -137,7 +147,7 @@ change_server()
   while [ $a -lt $wg_wait ]
   do
     if ip link | grep $interface_name > /dev/null; then
-      received=$(ping -q -c 1 -W 1 $endpoint | sed -n 's/^.* \([0-9]*\) received.*/\1/p')
+      received=$(ping -q -c 1 -W 1 "$endpoint" | sed -n 's/^.* \([0-9]*\) received.*/\1/p')
       if [ $received -gt 0 ]; then
         break
       fi
@@ -182,23 +192,22 @@ change_server()
     echo "$sn: dnsmasq restarted"
   fi
 
-  # Restart danted
-  if [ $restart_danted -gt 0 ] && \
-    [ $(systemctl is-active danted.service) = "active" ]; then
-    echo "$sn: Restarting danted"
-    systemctl restart danted.service
+  # Start microsocks
+  if [ $microsocks -gt 0 ] && \
+    which microsocks > /dev/null; then
+    echo "$sn: (Re)starting microsocks"
+    killall microsocks > /dev/null 2>&1
+    microsocks -p 1080 > /dev/null 2>&1 &
     ec=$?
     if [ $ec -gt 0 ]; then
       critical_error $ec
     fi
-    echo "$sn: danted restarted"
+    echo "$sn: microsocks (re)started"
   fi
 
   # Save current server name to txt
   echo "$sn: Saving current server name to $current_server_txt"
-  bn=$(basename "$newfile")
-  server_name="${bn%.*}"
-  echo "$server_name" > "$current_server_txt"
+  echo "$newdir"/"$newfile" > "$current_server_txt"
 
   echo "$sn: Done"
 }
