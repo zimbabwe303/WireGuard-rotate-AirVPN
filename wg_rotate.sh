@@ -13,6 +13,15 @@
 rotate_interval=0     # in minutes, set to 0 to disable automatic rotation
 rotate_variation=30   # in minutes
 
+# Speed test using curl (e.g. download file)
+# curl_test_url should be a direct link, size ~5MB
+# curl_test_min_speed is in KB/s
+# curl_timeout is in seconds
+curl_test=1
+curl_test_url="http://ftp.nl.debian.org/debian/pool/main/e/emacs/emacs-gtk_30.1+1-6_amd64.deb"
+curl_test_min_speed=1000
+curl_timeout=30
+
 root_dir=/etc/wireguard
 wg_quick=awg-quick  # use AmneziaWG's wg-quick
 wg=awg              # use AmneziaWG's wg
@@ -162,8 +171,24 @@ change_server()
   fi
   echo "$sn: WireGuard tunnel started"
 
-  # Connect ping
-  if [ $connect_ping_count -gt 0 ]; then
+  # Test connection
+  if [ $curl_test -gt 0 ]; then
+    echo "$sn: Testing speed with $curl_test_url, required speed is $curl_test_min_speed KB/s..."
+    min_speed=$(( $curl_test_min_speed * 1000 ))
+    speed=$(curl -qfsS -w '%{speed_download}' -o /dev/null --url "$curl_test_url" -m $curl_timeout)
+    speed_kb=$(( $speed / 1000 ))
+    if [ $? -gt 0 ]; then
+      echo "$sn: curl failed"
+      stop_daemons
+      return 105
+    fi
+    if [ $speed -lt $min_speed ]; then
+      echo "$sn: slow average speed ($speed_kb KB/sec)"
+      stop_daemons
+      return 106
+    fi
+    echo "$sn: good average speed ($speed_kb KB/sec)"
+  elif [ $connect_ping_count -gt 0 ]; then
     echo "$sn: Ping $connect_ping_addr, $connect_ping_count time(s)..."
     ping_time=$(ping -q -c $connect_ping_count -W $ping_timeout $connect_ping_addr | sed -n 's/^rtt .*=.*\/\([0-9]*\)\..*\/.* ms$/\1/p')
     if [ ! $ping_time ]; then
