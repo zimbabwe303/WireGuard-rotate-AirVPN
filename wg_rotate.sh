@@ -1,6 +1,6 @@
 #!/bin/sh
 # Rotate servers (WireGuard version)
-# 18.04.2026
+# 04.05.2026
 
 # THIS SCRIPT IS SELF-CONTAINED
 # IT DOES NOT REQUIRE ANY OTHER SCRIPTS
@@ -14,12 +14,12 @@ rotate_interval=0     # in minutes, set to 0 to disable automatic rotation
 rotate_variation=30   # in minutes
 
 # Speed test using curl (e.g. download file)
-# curl_test_url should be a direct link, size ~5MB
+# curl_test_url should be a direct link, size ~10MB
 # curl_test_min_speed is in KB/s
 # curl_timeout is in seconds
 curl_test=1
-curl_test_url="http://ftp.nl.debian.org/debian/pool/main/e/emacs/emacs-gtk_30.1+1-6_amd64.deb"
-curl_test_min_speed=1000
+curl_test_url="http://ftp.nl.debian.org/debian/pool/main/f/fonts-noto-color-emoji/fonts-noto-color-emoji_2.051-0+deb13u1_all.deb"
+curl_test_min_speed=2000
 curl_timeout=30
 
 root_dir=/etc/wireguard
@@ -320,6 +320,18 @@ do
         echo "$switch_file detected, switching to another server..."
         rm -f "$switch_file"
         break
+      fi
+      if [ $microsocks -gt 0 ] && \
+        which microsocks > /dev/null && \
+        ps -A | grep microsocks > /dev/null; then
+        # Restart microsocks if it has crashed
+        echo "$sn: It seems that microsocks has crashed. Restarting..."
+        microsocks -p 1080 > /dev/null 2>&1 &
+        ec=$?
+        if [ $ec -gt 0 ]; then
+          critical_error $ec
+        fi
+        echo "$sn: microsocks restarted"
       fi
       a=$(( $a+1 ))
     done
