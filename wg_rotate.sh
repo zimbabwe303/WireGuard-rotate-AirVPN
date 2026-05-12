@@ -1,6 +1,6 @@
 #!/bin/sh
 # Rotate servers (WireGuard version)
-# 04.05.2026
+# 13.05.2026
 
 # THIS SCRIPT IS SELF-CONTAINED
 # IT DOES NOT REQUIRE ANY OTHER SCRIPTS
@@ -54,9 +54,16 @@ amnezia_H4=4     # Underload packet magic header
 amnezia_I1="<b 0xc700000001><rc 8><t><r 100>"  # Signature packet 1 (QUIC)
 amnezia_I2="<b 0xf6ab3267fa><t><rc 20><r 80>"  # Signature packet 2 (QUIC)
 
-restart_dnsmasq=1
-microsocks=1
+# Local proxy server:
+# 0 - none
+# 1 - microsocks
+# 2 - hev-socks5-server
+proxy=2
+proxy_timeout=5  # How long to wait until proxy has started
+microsocks_port=1080
+hevsocks5_conf=/etc/hev-socks5-server.yml
 
+restart_dnsmasq=1  # Restart dnsmasq after (re)connect
 list_file="$root_dir"/wg_rotate_servers.txt
 full_file="$root_dir"/wg_rotate_servers_full.txt
 current_server_txt="$root_dir"/current_server.txt
@@ -65,6 +72,16 @@ interface_name=wg0
 
 stop_daemons()
 {
+  if [ $proxy -eq 1 ] &&
+    pgrep -f microsocks > /dev/null; then
+    echo "Killing microsocks..."
+    killall microsocks > /dev/null 2>&1
+  fi
+  if [ $proxy -eq 2 ] &&
+    pgrep -f hev-socks5-server > /dev/null; then
+    echo "Killing hev-socks5-server..."
+    killall hev-socks5-server > /dev/null 2>&1
+  fi
   if ip link | grep $interface_name > /dev/null; then
     echo "Killing WireGuard (interface: $interface_name)... "
     "$wg_quick" down "$wg_conf_file"
@@ -88,6 +105,29 @@ critical_error()
     echo "Critical error: $1. Stopping daemons and exiting..."
     stop_daemons
     exit $1
+  fi
+}
+
+# (Re)start proxy server
+start_proxy()
+{
+ if which $1 > /dev/null && \
+      ! pgrep -f $1 > /dev/null; then
+    echo "$sn: (Re)starting $1"
+    $1 "$2" > /dev/null 2>&1 &
+    t=0
+    while [ $t -lt $proxy_timeout ]; do
+      if pgrep -f $1 > /dev/null; then
+        break
+      fi
+      sleep 1
+      t=$((t+1))
+    done
+    if [ $t -eq $proxy_timeout ]; then
+      echo "$sn: Cannot start $1, continuing anyway..."
+    else
+      echo "$sn: $1 (re)started"
+    fi
   fi
 }
 
@@ -217,17 +257,12 @@ change_server()
     echo "$sn: dnsmasq restarted"
   fi
 
-  # Start microsocks
-  if [ $microsocks -gt 0 ] && \
-    which microsocks > /dev/null; then
-    echo "$sn: (Re)starting microsocks"
-    killall microsocks > /dev/null 2>&1
-    microsocks -p 1080 > /dev/null 2>&1 &
-    ec=$?
-    if [ $ec -gt 0 ]; then
-      critical_error $ec
-    fi
-    echo "$sn: microsocks (re)started"
+  # Start proxy
+  if [ $proxy -eq 1 ]; then
+    start_proxy microsocks -p$microsocks_port
+  fi
+  if [ $proxy -eq 2 ]; then
+    start_proxy hev-socks5-server "$hevsocks5_conf"
   fi
 
   # Save current server name to txt
@@ -321,17 +356,12 @@ do
         rm -f "$switch_file"
         break
       fi
-      if [ $microsocks -gt 0 ] && \
-        which microsocks > /dev/null && \
-        ps -A | grep microsocks > /dev/null; then
-        # Restart microsocks if it has crashed
-        echo "$sn: It seems that microsocks has crashed. Restarting..."
-        microsocks -p 1080 > /dev/null 2>&1 &
-        ec=$?
-        if [ $ec -gt 0 ]; then
-          critical_error $ec
-        fi
-        echo "$sn: microsocks restarted"
+      # Restart proxy if it has crashed
+      if [ $proxy -eq 1 ]; then
+        start_proxy microsocks -p$microsocks_port
+      fi
+      if [ $proxy -eq 2 ]; then
+        start_proxy hev-socks5-server "$hev_socks5-server_conf"
       fi
       a=$(( $a+1 ))
     done
