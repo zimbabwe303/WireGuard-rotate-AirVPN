@@ -39,9 +39,9 @@ mtu=1500                      # default is 1320
 
 # AmneziaWG parameters
 amnezia_ENABLE=1   # Add the AmneziaWG parameters
-amnezia_Jc=35      # Junk packet count
-amnezia_Jmin=150   # Junk packet minimum size
-amnezia_Jmax=2500  # Junk packet maximum size
+amnezia_Jc=35      # Junk packet count (1-128)
+amnezia_Jmin=150   # Junk packet minimum size (1-1279)
+amnezia_Jmax=1280  # Junk packet maximum size (2-1280)
 amnezia_S1=0       # Handshake init padding
 amnezia_S2=0       # Handshake response padding
 amnezia_S3=0       # Cookie reply padding
