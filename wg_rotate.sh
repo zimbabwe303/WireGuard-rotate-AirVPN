@@ -48,11 +48,18 @@ amnezia_S3=0       # Cookie reply padding
 amnezia_S4=0       # Transport data padding
 amnezia_CustomH=1  # Set to 1 to use custom H1..4 parameters, 0 to use random (except 1,2,3,4)
 amnezia_H1=1       # Init packet magic header
-amnezia_H2=2     # Response packet magic header
+amnezia_H2=2       # Response packet magic header
 amnezia_H3=3       # Transport packet magic header
-amnezia_H4=4     # Underload packet magic header
-amnezia_I1="<b 0xc700000001><rc 8><t><r 100>"  # Signature packet 1 (QUIC)
-amnezia_I2="<b 0xf6ab3267fa><t><rc 20><r 80>"  # Signature packet 2 (QUIC)
+amnezia_H4=4       # Underload packet magic header
+# Custom signature (junk) packets
+# If you specify the I-list file a random set of values will be extracted from it
+# Download the I-list files: https://github.com/VoidWaifu/Special-Junk-Packet-List
+amnezia_Ilist="$root_dir"/I-list1.json
+amnezia_I1=""
+amnezia_I2=""
+amnezia_I3=""
+amnezia_I4=""
+amnezia_I5=""
 
 # Local proxy server:
 # 0 - none
@@ -161,7 +168,18 @@ change_server()
     else
       echo "$sn: using custom H1..4 parameters"
     fi
-    sed "/^\[Interface\]/a\Jc = $amnezia_Jc\nJmin = $amnezia_Jmin\nJmax = $amnezia_Jmax\nS1 = $amnezia_S1\nS2 = $amnezia_S2\nS3 = $amnezia_S3\nS4 = $amnezia_S4\nH1 = $amnezia_H1\nH2 = $amnezia_H2\nH3 = $amnezia_H3\nH4 = $amnezia_H4\nI1 = $amnezia_I1\nI2 = $amnezia_I2\n" \
+    if [ "$amnezia_Ilist" ]; then
+      valnum=$(shuf -i 1-800 -n 1)
+      echo "$sn: using the value set $valnum from the I-list file"
+      amnezia_I1=$(cat "$amnezia_Ilist" | sed -n "s/.*\"I1_c$valnum\": \"\(.*\)\".*/\1/p")
+      amnezia_I2=$(cat "$amnezia_Ilist" | sed -n "s/.*\"I2_c$valnum\": \"\(.*\)\".*/\1/p")
+      amnezia_I3=$(cat "$amnezia_Ilist" | sed -n "s/.*\"I3_c$valnum\": \"\(.*\)\".*/\1/p")
+      amnezia_I4=$(cat "$amnezia_Ilist" | sed -n "s/.*\"I4_c$valnum\": \"\(.*\)\".*/\1/p")
+      amnezia_I5=$(cat "$amnezia_Ilist" | sed -n "s/.*\"I5_c$valnum\": \"\(.*\)\".*/\1/p")
+    else
+      echo "$sn: using the predefined set of I values"
+    fi
+    sed "/^\[Interface\]/a\Jc = $amnezia_Jc\nJmin = $amnezia_Jmin\nJmax = $amnezia_Jmax\nS1 = $amnezia_S1\nS2 = $amnezia_S2\nS3 = $amnezia_S3\nS4 = $amnezia_S4\nH1 = $amnezia_H1\nH2 = $amnezia_H2\nH3 = $amnezia_H3\nH4 = $amnezia_H4\nI1 = $amnezia_I1\nI2 = $amnezia_I2\nI3 = $amnezia_I3\nI4 = $amnezia_I4\nI5 = $amnezia_I5\n" \
       "$newdir"/"$newfile" > "$wg_conf_file"
   else
     echo "$sn: Copy \"$newfile\" as \"$wg_conf_file\"..."
